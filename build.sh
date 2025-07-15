@@ -1,33 +1,36 @@
 #!/bin/bash
-set -e  # Stop on any error
+set -e
 
-echo "🚀 Starting build process with Python 3.11..."
+echo "🚀 Starting simplified build process..."
 
-# Show Python version
-python --version
+# Use system Python 3.11 if available
+if command -v python3.11 &> /dev/null; then
+    PYTHON_CMD=python3.11
+    echo "📍 Using Python 3.11: $(python3.11 --version)"
+else
+    PYTHON_CMD=python3
+    echo "📍 Using default Python: $(python3 --version)"
+fi
 
-# Clean any existing setuptools
-echo "🧹 Cleaning existing setuptools..."
-pip uninstall -y setuptools wheel || true
+# Create virtual environment with Python 3.11
+echo "🔧 Creating virtual environment..."
+$PYTHON_CMD -m venv venv
+source venv/bin/activate
 
-# Update pip to latest
-echo "📦 Updating pip to latest..."
-python -m pip install --upgrade pip
+# Upgrade pip in virtual environment
+echo "📦 Upgrading pip..."
+pip install --upgrade pip
 
-# Install setuptools and wheel from scratch
-echo "🔧 Installing fresh setuptools and wheel..."
-python -m pip install --no-cache-dir setuptools==69.5.1 wheel==0.43.0
-
-# Verify installation
-echo "✅ Verifying setuptools installation..."
-python -c "import setuptools; print(f'✅ Setuptools {setuptools.__version__} installed successfully')"
+# Install build dependencies
+echo "🛠️ Installing build dependencies..."
+pip install setuptools wheel
 
 # Install requirements
-echo "📋 Installing project requirements..."
-pip install --no-cache-dir -r requirements.txt
+echo "📋 Installing requirements..."
+pip install -r requirements.txt
 
 # Install Playwright browsers
 echo "🎭 Installing Playwright Chromium..."
 playwright install chromium
 
-echo "✅ Build completed successfully with Python $(python --version)!"
+echo "✅ Build completed successfully!"
