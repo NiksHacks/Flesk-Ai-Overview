@@ -1,10 +1,6 @@
 # AI Overview & Content Gap Analyzer - Requirements for Render
 # Ottimizzato per deployment su Render.com
-
-# Build dependencies (risolve errore setuptools.build_meta)
-setuptools>=65.0.0
-wheel>=0.38.0
-pip>=22.0.0
+# Build dependencies gestite direttamente nel buildCommand
 
 # Web server di produzione
 gunicorn==21.2.0
