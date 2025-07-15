@@ -13,7 +13,7 @@
     }
   ],
   "env": {
-    "GEMINI_API_KEY": "AIzaSyDXB8Lj2gamg7SEYmxvZ_uEs7JX3RKZ9yY"
+    "GEMINI_API_KEY": "geminiapy"
   },
   "functions": {
     "app.py": {
