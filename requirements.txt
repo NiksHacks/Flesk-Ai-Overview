@@ -1,0 +1,38 @@
+# AI Overview & Content Gap Analyzer - Requirements
+# Installa tutte le dipendenze con: pip install -r requirements.txt
+
+# Web scraping e automazione browser
+selenium==4.15.2
+webdriver-manager==4.0.1
+
+# HTTP requests e parsing HTML
+requests==2.31.0
+beautifulsoup4==4.12.2
+lxml==4.9.3
+
+# Natural Language Processing
+nltk==3.8.1
+
+# Dipendenze per analisi semantica avanzata
+google-generativeai==0.3.2
+scikit-learn==1.3.2
+numpy==1.24.3
+
+# Web framework e server
+Flask==3.0.0
+gunicorn==21.2.0
+
+# Streamlit e interfaccia web
+streamlit==1.28.1
+plotly==5.17.0
+pandas==2.1.3
+
+# Utilities
+urllib3==2.0.7
+chardet==5.2.0
+
+# Note:
+# 1. Assicurati di avere Google Chrome installato sul sistema
+# 2. Dopo l'installazione, esegui il seguente comando Python per scaricare i dati NLTK:
+#    python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
+# 3. Per avviare l'interfaccia web: streamlit run streamlit_app.py

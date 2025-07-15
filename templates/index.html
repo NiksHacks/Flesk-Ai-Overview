@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ai Analyzer - Sistema Professionale di Analisi AI Overview</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Plotly -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p class="loading-text">Elaborazione in corso...</p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="cyber-header">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='images/Logo Stratego  (1).svg') }}" alt="Stratego Logo" class="stratego-svg-logo">
+        </div>
+        <div class="header-content">
+            <h1 class="cyber-title">Stratego Ai Analyzer</h1>
+            <p class="cyber-subtitle">Sistema Professionale di Analisi AI Overview & Content Gap</p>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container main-container">
+        <!-- Navigation Tabs -->
+        <nav class="tab-navigation">
+            <button class="tab-btn active" data-tab="ai-overview">
+                <i class="fas fa-robot"></i>
+                AI Overview Extractor
+            </button>
+            <button class="tab-btn" data-tab="content-gap">
+                <i class="fas fa-comments"></i>
+                Content Gap Analyzer
+            </button>
+            <button class="tab-btn" data-tab="file-manager">
+                <i class="fas fa-folder"></i>
+                File Manager
+            </button>
+        </nav>
+
+        <!-- Tab Contents -->
+        <div class="tab-content">
+            <!-- AI Overview Extractor Tab -->
+            <div id="ai-overview" class="tab-pane active">
+                <div class="cyber-card">
+                    <h2 class="section-title">
+                        <i class="fas fa-robot"></i>
+                        ESTRAZIONE INTELLIGENTE AI OVERVIEW
+                    </h2>
+                    <p class="section-description">
+                        Estrai automaticamente i contenuti dall'AI Overview di Google per qualsiasi query di ricerca. 
+                        Il sistema utilizza automazione browser avanzata per ottenere il contenuto completo.
+                    </p>
+                </div>
+
+                <!-- Query Input -->
+                <div class="cyber-card">
+                    <div class="input-group">
+                        <label for="queryInput" class="input-label">
+                            <i class="fas fa-search"></i>
+                            Query di ricerca
+                        </label>
+                        <input type="text" id="queryInput" class="modern-input" 
+                               placeholder="Inserisci la tua query di ricerca...">
+                        <div class="input-help">Inserisci la query per cui vuoi estrarre l'AI Overview</div>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button id="extractBtn" class="btn btn-primary">
+                            <i class="fas fa-rocket"></i>
+                            ESTRAI AI OVERVIEW
+                        </button>
+                        <button id="clearOverviewBtn" class="btn btn-secondary" style="display: none;">
+                            <i class="fas fa-trash"></i>
+                            CANCELLA AI OVERVIEW
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Results Container -->
+                <div id="aiOverviewResults" class="results-container" style="display: none;">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+
+            <!-- Content Gap Analyzer Tab -->
+            <div id="content-gap" class="tab-pane">
+                <div class="cyber-card">
+                    <h2 class="section-title">
+                        <i class="fas fa-comments"></i>
+                        CONTENT GAP ANALYZER
+                    </h2>
+                    <p class="section-description">
+                        Analizza il gap di contenuto  usando la 
+                        Chat interattiva per insights approfonditi.
+                    </p>
+                </div>
+
+                <!-- File Upload -->
+                <div class="cyber-card">
+                    <h3 class="card-title">
+                        <i class="fas fa-folder-open"></i>
+                        Carica AI Overview JSON
+                    </h3>
+                    <div class="file-upload-area" id="fileUploadArea">
+                        <input type="file" id="jsonFileInput" accept=".json" style="display: none;">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Trascina qui il file JSON o clicca per selezionare</p>
+                            <small>Carica un file JSON contenente l'AI Overview per iniziare l'analisi</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Interface -->
+                <div class="cyber-card">
+                    <h3 class="card-title">
+                        <i class="fas fa-brain"></i>
+                        Content Gap Analyzer
+                    </h3>
+                    
+                    <!-- Chat History -->
+                    <div id="chatHistory" class="chat-history">
+                        <!-- Chat messages will appear here -->
+                    </div>
+                    
+                    <!-- Chat Input -->
+                    <div class="chat-input-container">
+                        <div class="input-group">
+                            <textarea id="chatInput" class="chat-textarea" 
+                                    placeholder="Es: Come posso migliorare il mio contenuto basandomi sull'AI Overview estratto?"
+                                    rows="3"></textarea>
+                        </div>
+                        
+                        <div class="button-group">
+                            <button id="sendChatBtn" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i>
+                                Invia
+                            </button>
+                            <button id="exportChatBtn" class="btn btn-secondary">
+                                <i class="fas fa-download"></i>
+                                Esporta Chat
+                            </button>
+                            <button id="clearChatBtn" class="btn btn-danger">
+                                <i class="fas fa-trash"></i>
+                                Pulisci Chat
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Manager Tab -->
+            <div id="file-manager" class="tab-pane">
+                <div class="cyber-card">
+                    <h2 class="section-title">
+                        <i class="fas fa-folder"></i>
+                        GESTIONE FILE
+                    </h2>
+                    <p class="section-description">
+                        Gestisci i tuoi file JSON: carica AI Overview salvati ed esporta i risultati delle analisi.
+                    </p>
+                </div>
+
+                <!-- Upload Section -->
+                <div class="cyber-card">
+                    <h3 class="card-title">
+                        <i class="fas fa-upload"></i>
+                        Carica AI Overview
+                    </h3>
+                    <div class="file-upload-area" id="fileManagerUpload">
+                        <input type="file" id="fileManagerInput" accept=".json" style="display: none;">
+                        <div class="upload-content">
+                            <i class="fas fa-file-upload"></i>
+                            <p>Carica un file JSON con AI Overview salvato</p>
+                            <small>Carica un file JSON precedentemente esportato contenente dati di AI Overview</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Saved Files Library -->
+                <div class="cyber-card">
+                    <h3 class="card-title">
+                        <i class="fas fa-database"></i>
+                        Libreria File Salvati
+                    </h3>
+                    <div id="savedFilesList" class="saved-files-container">
+                        <div class="empty-state" id="emptyFilesState">
+                            <i class="fas fa-folder-open"></i>
+                            <p>Nessun file salvato</p>
+                            <small>Carica o estrai AI Overview per popolare la libreria</small>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+
+
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="cyber-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="footerExtractions">0</span>
+                        <span class="stat-label">Estrazioni</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="footerAnalyses">0</span>
+                        <span class="stat-label">Analisi</span>
+                    </div>
+                </div>
+                <div class="footer-info">
+                    <p><strong>🚀 Stratego Ai Analyzer V1.0</strong></p>
+                    <p>Ai Overview Scraper & Content Gap Analyzer</p>
+                    <div class="footer-credits">
+                        <p class="copyright">© 2025 Stratego SWAT. Tutti i diritti riservati.</p>
+                        <p class="developer-credit">Sviluppato da <strong>Nicolas Micolani</strong></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer" class="notification-container"></div>
+
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
