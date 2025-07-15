@@ -3,7 +3,7 @@ services:
     name: flesk-ai-overview
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt && playwright install chromium
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && playwright install chromium
     startCommand: gunicorn --bind 0.0.0.0:$PORT app:app
     envVars:
       - key: PYTHON_VERSION
