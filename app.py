@@ -32,7 +32,7 @@ if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 # Configurazione API Key AI
-GEMINI_API_KEY = "AIzaSyDXB8Lj2gamg7SEYmxvZ_uEs7JX3RKZ9yY"
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', 'AIzaSyDXB8Lj2gamg7SEYmxvZ_uEs7JX3RKZ9yY')
 
 # Inizializzazione session state
 def init_session():
