@@ -12,6 +12,9 @@ import threading
 from datetime import datetime
 import plotly.graph_objects as go
 import plotly.express as px
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ai_overview_extractor import AIOverviewExtractor
 from content_gap_analyzer import ContentGapAnalyzer
 from semantic_analyzer import SemanticAnalyzer
@@ -22,9 +25,9 @@ import base64
 import os
 from werkzeug.utils import secure_filename
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='../templates', static_folder='../static')
 app.secret_key = 'ai_analyzer_secret_key_2025'
-app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['UPLOAD_FOLDER'] = '../uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Crea cartella uploads se non esiste
