@@ -1,5 +1,12 @@
-# AI Overview & Content Gap Analyzer - Requirements
-# Installa tutte le dipendenze con: pip install -r requirements.txt
+# AI Overview & Content Gap Analyzer - Requirements for Render
+# Ottimizzato per deployment su Render.com
+
+# Web server di produzione
+gunicorn==21.2.0
+
+# Web framework
+Flask==3.0.0
+Werkzeug==3.0.1
 
 # Web scraping e automazione browser
 selenium==4.15.2
@@ -18,11 +25,7 @@ google-generativeai==0.3.2
 scikit-learn>=1.4.0
 numpy==1.24.3
 
-# Web framework
-Flask==3.0.0
-
-# Streamlit e interfaccia web
-streamlit==1.28.1
+# Visualizzazione dati
 plotly==5.17.0
 pandas==2.1.3
 
@@ -30,8 +33,7 @@ pandas==2.1.3
 urllib3==2.0.7
 chardet==5.2.0
 
-# Note:
-# 1. Assicurati di avere Google Chrome installato sul sistema
-# 2. Dopo l'installazione, esegui il seguente comando Python per scaricare i dati NLTK:
-#    python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
-# 3. Per avviare l'interfaccia web: streamlit run streamlit_app.py
+# Note per Render:
+# 1. Chrome è preinstallato nell'ambiente Render
+# 2. NLTK data viene scaricato automaticamente al primo avvio
+# 3. Aggiungi GEMINI_API_KEY nelle Environment Variables di Render

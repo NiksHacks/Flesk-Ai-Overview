@@ -12,9 +12,6 @@ import threading
 from datetime import datetime
 import plotly.graph_objects as go
 import plotly.express as px
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ai_overview_extractor import AIOverviewExtractor
 from content_gap_analyzer import ContentGapAnalyzer
 from semantic_analyzer import SemanticAnalyzer
@@ -25,9 +22,9 @@ import base64
 import os
 from werkzeug.utils import secure_filename
 
-app = Flask(__name__, template_folder='../templates', static_folder='../static')
+app = Flask(__name__)
 app.secret_key = 'ai_analyzer_secret_key_2025'
-app.config['UPLOAD_FOLDER'] = '../uploads'
+app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Crea cartella uploads se non esiste
@@ -36,6 +33,18 @@ if not os.path.exists(app.config['UPLOAD_FOLDER']):
 
 # Configurazione API Key AI
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', 'AIzaSyDXB8Lj2gamg7SEYmxvZ_uEs7JX3RKZ9yY')
+
+# Download dati NLTK necessari (solo al primo avvio)
+try:
+    import nltk
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt', quiet=True)
+    
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    nltk.download('stopwords', quiet=True)
 
 # Inizializzazione session state
 def init_session():
@@ -456,4 +465,5 @@ def get_chat_history():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
