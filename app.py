@@ -21,6 +21,7 @@ import csv
 import base64
 import os
 from werkzeug.utils import secure_filename
+import google.generativeai as genai
 
 app = Flask(__name__)
 app.secret_key = 'ai_analyzer_secret_key_2025'
@@ -68,6 +69,7 @@ def index():
 
 @app.route('/extract_ai_overview', methods=['POST'])
 def extract_ai_overview():
+    extractor = None
     try:
         data = request.get_json()
         query = data.get('query', '').strip()
@@ -75,10 +77,45 @@ def extract_ai_overview():
         if not query:
             return jsonify({'success': False, 'error': 'Query non fornita'})
         
-        # Estrazione AI Overview
-        extractor = AIOverviewExtractor(headless=True)
-        result = extractor.extract_ai_overview_from_query(query)
+        # Prova prima con Playwright
+        try:
+            print("🚀 Tentativo estrazione con Playwright...")
+            extractor = AIOverviewExtractor(headless=True)
+            result = extractor.extract_ai_overview_from_query(query)
+            
+            if result and result.get('found', False) and result.get('full_content', ''):
+                method_used = result.get('method', 'playwright')
+                print(f"✅ Estrazione riuscita con metodo: {method_used}")
+            else:
+                result = None
+                
+        except Exception as playwright_error:
+            print(f"❌ Errore Playwright: {playwright_error}")
+            print("🔄 Passaggio al metodo fallback...")
+            
+            # Chiudi extractor precedente se esiste
+            if extractor:
+                try:
+                    extractor.close()
+                except:
+                    pass
+            
+            # Prova con metodo fallback
+            try:
+                extractor = AIOverviewExtractor(use_fallback=True)
+                result = extractor.extract_ai_overview_from_query(query)
+                
+                if result and result.get('found', False) and result.get('full_content', ''):
+                    method_used = result.get('method', 'requests_fallback')
+                    print(f"✅ Estrazione fallback riuscita con metodo: {method_used}")
+                else:
+                    result = None
+                    
+            except Exception as fallback_error:
+                print(f"❌ Errore anche con fallback: {fallback_error}")
+                result = None
         
+        # Processa il risultato se trovato
         if result and result.get('found', False) and result.get('full_content', ''):
             # Crea oggetto compatibile
             ai_overview_data = {
@@ -86,7 +123,8 @@ def extract_ai_overview():
                 'ai_overview': result.get('full_content', ''),
                 'found': True,
                 'extraction_time': time.strftime('%Y-%m-%d %H:%M:%S'),
-                'sources': result.get('sources', [])
+                'sources': result.get('sources', []),
+                'method': result.get('method', 'unknown')
             }
             
             session['ai_overview_data'] = ai_overview_data
@@ -95,24 +133,26 @@ def extract_ai_overview():
             return jsonify({
                 'success': True,
                 'data': ai_overview_data,
-                'message': 'AI Overview estratto con successo!'
+                'message': f'AI Overview estratto con successo! (Metodo: {result.get("method", "unknown")})'
             })
         else:
             return jsonify({
                 'success': False,
-                'error': 'Nessun AI Overview trovato per questa query'
+                'error': 'Nessun AI Overview trovato per questa query. Prova con una query diversa o più specifica.'
             })
             
     except Exception as e:
+        print(f"❌ Errore generale: {e}")
         return jsonify({
             'success': False,
             'error': f'Errore durante l\'estrazione: {str(e)}'
         })
     finally:
-        try:
-            extractor.close()
-        except:
-            pass
+        if extractor:
+            try:
+                extractor.close()
+            except:
+                pass
 
 @app.route('/clear_ai_overview', methods=['POST'])
 def clear_ai_overview():
@@ -121,6 +161,7 @@ def clear_ai_overview():
 
 @app.route('/chat_analyze', methods=['POST'])
 def chat_analyze():
+    semantic_analyzer = None
     try:
         data = request.get_json()
         question = data.get('question', '').strip()
@@ -128,230 +169,131 @@ def chat_analyze():
         if not question:
             return jsonify({'success': False, 'error': 'Domanda non fornita'})
         
-        # Inizializza semantic analyzer se necessario
-        if not session.get('semantic_analyzer'):
-            semantic_analyzer = SemanticAnalyzer(GEMINI_API_KEY)
-            session['semantic_analyzer'] = True  # Flag per indicare che è inizializzato
-        else:
-            semantic_analyzer = SemanticAnalyzer(GEMINI_API_KEY)
+        print(f"🤖 Elaborazione domanda: {question[:100]}...")
         
-        # Aggiungi domanda alla chat history
+        # Inizializza semantic analyzer con gestione memoria ottimizzata
+        try:
+            semantic_analyzer = SemanticAnalyzer(GEMINI_API_KEY)
+        except Exception as e:
+            print(f"❌ Errore inizializzazione SemanticAnalyzer: {e}")
+            return jsonify({
+                'success': False, 
+                'error': 'Servizio di analisi temporaneamente non disponibile. Riprova tra qualche minuto.'
+            })
+        
+        # Aggiungi domanda alla chat history (limitata per memoria)
         if 'chat_history' not in session:
             session['chat_history'] = []
         
+        # Mantieni solo le ultime 5 conversazioni per ridurre memoria
+        if len(session['chat_history']) >= 10:
+            session['chat_history'] = session['chat_history'][-8:]
+        
         session['chat_history'].append({'role': 'user', 'content': question})
         
-        # Prepara contesto
+        # Prepara contesto completo
         context = ""
         if session.get('ai_overview_data'):
             ai_content = session['ai_overview_data'].get('ai_overview', session['ai_overview_data'].get('full_content', ''))
-            context += f"\n\nAI OVERVIEW:\n{ai_content[:1500]}..."
+            # Usa il contesto completo per analisi dettagliate
+            context += f"\n\nAI OVERVIEW:\n{ai_content}"
         
-        full_prompt = f"""Sei un esperto SEO e content strategist con oltre 10 anni di esperienza. Il tuo compito è fornire analisi precise, actionable e basate su dati concreti.
+        # Prompt SEO ottimizzato per Content Gap Analysis
+        full_prompt = f"""Sei un ESPERTO SEO specializzato in Content Gap Analysis.
 
-## RUOLO E COMPETENZE:
-- Specialista in ottimizzazione per motori di ricerca
-- Esperto in content strategy e gap analysis
-- Analista di performance e metriche SEO
-- Consulente per miglioramento della visibilità online
+## CONTESTO:{context}
 
-## CONTESTO DISPONIBILE:{context}
-
-## DOMANDA DELL'UTENTE:
+## DOMANDA:
 {question}
 
-## ISTRUZIONI PER LA RISPOSTA:
-1. **ANALISI**: Inizia con un'analisi chiara del problema/richiesta
-2. **STRATEGIA**: Fornisci una strategia specifica e dettagliata
-3. **AZIONI CONCRETE**: Elenca azioni precise e misurabili
-4. **METRICHE**: Suggerisci KPI per monitorare i risultati
-5. **TEMPISTICHE**: Indica quando possibile le tempistiche di implementazione
+## ANALISI RICHIESTA:
 
-## FORMATO RISPOSTA:
-- Usa un linguaggio professionale ma accessibile
-- Struttura la risposta con titoli e sottotitoli chiari
-- Fornisci esempi concreti quando possibile
-- Includi riferimenti al contesto AI Overview quando rilevante
-- Mantieni focus su risultati misurabili e ROI
+🔍 **CONTENT GAP**: Identifica lacune di contenuto e argomenti mancanti
+🎯 **KEYWORD GAP**: Parole chiave semanticamente correlate non coperte  
+💡 **OPPORTUNITÀ**: 3-4 azioni concrete e prioritarie
+📊 **STRATEGIA**: Raccomandazioni per migliorare autorità tematica
+⚡ **QUICK WINS**: Modifiche rapide ad alto impatto
 
-## VINCOLI:
-- Rispondi SEMPRE in italiano
-- Basa le raccomandazioni sui dati del contesto fornito
-- Se mancano informazioni, specifica cosa serve per un'analisi più precisa
-- Evita consigli generici, sii sempre specifico
-
-Fornisci una risposta completa, strutturata e immediatamente implementabile:"""
+Rispondi in italiano con analisi professionale e actionable completa (max 15000 caratteri):"""
         
-        # Controlla se l'utente richiede grafici o tabelle
-        chart_keywords = ['grafico', 'grafica', 'chart', 'plot', 'visualizza', 'diagramma', 'istogramma', 'barre', 'linee', 'torta']
-        table_keywords = ['tabella', 'table', 'elenco', 'lista strutturata', 'confronto', 'comparazione']
-        
-        wants_chart = any(keyword in question.lower() for keyword in chart_keywords)
-        wants_table = any(keyword in question.lower() for keyword in table_keywords)
-        
-        if wants_chart or wants_table:
-            # Genera prompt specifico per dati strutturati
-            if wants_chart:
-                structured_prompt = f"""{full_prompt}
-
-## RICHIESTA VISUALIZZAZIONE DATI:
-L'utente ha richiesto un grafico. Dopo la tua risposta testuale completa, DEVI includere OBBLIGATORIAMENTE i dati per la visualizzazione.
-
-## FORMATO JSON RICHIESTO (OBBLIGATORIO):
-Includi ESATTAMENTE questo formato JSON alla fine della tua risposta:
-
-{{"chart": {{"type": "TIPO_GRAFICO", "title": "TITOLO_SPECIFICO", "data": DATI_STRUTTURATI}}}}
-
-## TIPI DI GRAFICO SUPPORTATI:
-- **bar**: Per confronti tra categorie
-- **line**: Per trend temporali
-- **pie**: Per distribuzioni percentuali
-
-## STRUTTURE DATI SPECIFICHE:
-
-**Per grafici a barre (bar):**
-{{"chart": {{"type": "bar", "title": "Titolo Descrittivo", "data": {{"x": ["Categoria1", "Categoria2", "Categoria3"], "y": [valore1, valore2, valore3]}}}}}}
-
-**Per grafici a linee (line):**
-{{"chart": {{"type": "line", "title": "Titolo Descrittivo", "data": {{"x": ["Gen", "Feb", "Mar"], "y": [valore1, valore2, valore3]}}}}}}
-
-**Per grafici a torta (pie):**
-{{"chart": {{"type": "pie", "title": "Titolo Descrittivo", "data": {{"labels": ["Categoria1", "Categoria2", "Categoria3"], "values": [percentuale1, percentuale2, percentuale3]}}}}}}
-
-## REGOLE OBBLIGATORIE:
-1. I valori numerici devono essere SEMPRE numeri, mai stringhe
-2. Le etichette devono essere descrittive e specifiche
-3. Per grafici a torta, i valori devono sommare a 100
-4. Massimo 8 elementi per grafico per leggibilità
-5. Il JSON deve essere valido e ben formattato
-6. Posiziona il JSON DOPO la risposta testuale, su una nuova riga
-
-## ESEMPIO COMPLETO:
-[La tua risposta testuale qui]
-
-{{"chart": {{"type": "bar", "title": "Performance Keyword Top 5", "data": {{"x": ["keyword seo", "content marketing", "digital strategy", "web analytics", "social media"], "y": [85, 72, 68, 61, 45]}}}}}}
-
-RICORDA: Il JSON è OBBLIGATORIO per visualizzare il grafico!"""
-            else:
-                structured_prompt = f"""{full_prompt}
-
-## RICHIESTA VISUALIZZAZIONE TABELLA:
-L'utente ha richiesto una tabella. Dopo la tua risposta testuale completa, DEVI includere OBBLIGATORIAMENTE i dati tabulari.
-
-## FORMATO JSON RICHIESTO (OBBLIGATORIO):
-Includi ESATTAMENTE questo formato JSON alla fine della tua risposta:
-
-{{"table": {{"title": "TITOLO_DESCRITTIVO", "headers": ["Colonna1", "Colonna2", "Colonna3"], "rows": [["dato1", "dato2", "dato3"], ["dato4", "dato5", "dato6"]]}}}}
-
-## REGOLE PER LA STRUTTURA TABELLA:
-1. **Title**: Deve essere descrittivo e specifico
-2. **Headers**: Massimo 6 colonne per leggibilità
-3. **Rows**: Massimo 10 righe per performance
-4. **Dati**: Devono essere coerenti con il tipo di colonna
-5. **Formattazione**: Usa stringhe per tutti i valori nelle celle
-
-## TIPI DI TABELLE CONSIGLIATE:
-- **Analisi Competitor**: [Nome, DA, Traffico, Ranking]
-- **Performance Keyword**: [Keyword, Volume, Difficoltà, Posizione]
-- **Content Gap**: [Argomento, Priorità, Difficoltà, Impatto]
-- **Metriche SEO**: [Metrica, Valore Attuale, Target, Status]
-- **Timeline Azioni**: [Azione, Priorità, Tempistica, Responsabile]
-
-## ESEMPI SPECIFICI:
-
-**Analisi Competitor:**
-{{"table": {{"title": "Top 5 Competitor Analysis", "headers": ["Competitor", "Domain Authority", "Traffico Mensile", "Top Keyword"], "rows": [["competitor1.com", "85", "2.5M", "digital marketing"], ["competitor2.com", "72", "1.8M", "seo tools"]]}}}}
-
-**Performance Keyword:**
-{{"table": {{"title": "Keyword Performance Report", "headers": ["Keyword", "Volume Ricerca", "Difficoltà SEO", "Posizione Attuale"], "rows": [["content marketing", "12,000", "65", "#8"], ["seo strategy", "8,500", "72", "#12"]]}}}}
-
-## REGOLE OBBLIGATORIE:
-1. Tutti i valori nelle celle devono essere stringhe (anche i numeri)
-2. Le intestazioni devono essere chiare e specifiche
-3. I dati devono essere realistici e coerenti
-4. Ordina i dati per rilevanza/importanza
-5. Il JSON deve essere valido e ben formattato
-6. Posiziona il JSON DOPO la risposta testuale, su una nuova riga
-
-## ESEMPIO COMPLETO:
-[La tua risposta testuale qui]
-
-{{"table": {{"title": "Content Gap Analysis - Top Priority", "headers": ["Argomento Mancante", "Priorità", "Difficoltà", "Impatto Stimato"], "rows": [["Tutorial SEO avanzato", "Alta", "Media", "85%"], ["Case study settore", "Alta", "Bassa", "70%"], ["Tools comparison", "Media", "Bassa", "60%"]]}}}}
-
-RICORDA: Il JSON è OBBLIGATORIO per visualizzare la tabella!"""
-        else:
-            structured_prompt = full_prompt
-        
-        # Genera risposta
-        response = semantic_analyzer.model.generate_content(structured_prompt)
-        
-        if response and response.text:
-            response_text = response.text
+        # Genera risposta con timeout ridotto
+        try:
+            print(f"🔍 Debug - Prompt inviato: {full_prompt[:200]}...")
+            response = semantic_analyzer.model.generate_content(
+                full_prompt,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=4096,  # Aumentato significativamente per evitare MAX_TOKENS
+                    temperature=0.7
+                )
+            )
             
-            # Cerca dati JSON per grafici o tabelle nella risposta
-            chart_data = None
-            table_data = None
+            print(f"🔍 Debug - Risposta ricevuta: {response}")
+            print(f"🔍 Debug - Candidates: {response.candidates if hasattr(response, 'candidates') else 'N/A'}")
             
-            # Estrai JSON dalla risposta se presente
-            import re
-            json_pattern = r'\{"(chart|table)":[^}]+\}\}'
-            json_matches = re.findall(json_pattern, response_text)
+            # Prova ad accedere alla risposta con metodi diversi
+            response_text = None
             
-            if json_matches:
+            # Metodo 1: Prova response.text diretto
+            try:
+                if response and hasattr(response, 'text') and response.text:
+                    response_text = response.text.strip()
+                    print(f"🔍 Debug - Metodo 1 successo: {len(response_text)} caratteri")
+            except Exception as e:
+                print(f"🔍 Debug - Metodo 1 fallito: {e}")
+                pass
+            
+            # Metodo 2: Prova tramite candidates se il primo fallisce
+            if not response_text and response.candidates and len(response.candidates) > 0:
                 try:
-                    # Trova l'intero blocco JSON
-                    json_start = response_text.find('{"')
-                    if json_start != -1:
-                        # Trova la fine del JSON
-                        brace_count = 0
-                        json_end = json_start
-                        for i, char in enumerate(response_text[json_start:]):
-                            if char == '{':
-                                brace_count += 1
-                            elif char == '}':
-                                brace_count -= 1
-                                if brace_count == 0:
-                                    json_end = json_start + i + 1
+                    candidate = response.candidates[0]
+                    print(f"🔍 Debug - Candidate: {candidate}")
+                    
+                    # Gestisci il caso MAX_TOKENS
+                    if candidate.finish_reason == 3:  # MAX_TOKENS
+                        print("🔍 Debug - Rilevato MAX_TOKENS, provo a estrarre contenuto parziale")
+                        if hasattr(candidate.content, 'parts') and candidate.content.parts:
+                            for part in candidate.content.parts:
+                                if hasattr(part, 'text') and part.text:
+                                    response_text = part.text.strip() + "\n\n[Risposta troncata - riprova con una domanda più specifica]"
+                                    print(f"🔍 Debug - Metodo 2 MAX_TOKENS successo: {len(response_text)} caratteri")
                                     break
-                        
-                        json_str = response_text[json_start:json_end]
-                        visual_data = json.loads(json_str)
-                        
-                        if 'chart' in visual_data:
-                            chart_data = visual_data['chart']
-                        elif 'table' in visual_data:
-                            table_data = visual_data['table']
-                        
-                        # Rimuovi il JSON dalla risposta testuale
-                        response_text = response_text[:json_start].strip()
-                        
-                except (json.JSONDecodeError, ValueError):
-                    pass  # Continua con la risposta normale se il JSON non è valido
+                    elif hasattr(candidate.content, 'parts') and candidate.content.parts:
+                        response_text = candidate.content.parts[0].text.strip()
+                        print(f"🔍 Debug - Metodo 2 successo: {len(response_text)} caratteri")
+                except Exception as e:
+                    print(f"🔍 Debug - Metodo 2 fallito: {e}")
+                    pass
             
-            # Prepara la risposta finale
-            final_response = response_text
+            print(f"🔍 Debug - Response_text finale: {response_text}")
             
-            if chart_data:
-                final_response = {
-                    'text': response_text,
-                    'chart': chart_data
+            if response_text:
+                # Aggiungi alla chat history con limite di memoria
+                if len(session['chat_history']) >= 20:
+                    session['chat_history'] = session['chat_history'][-15:]
+                
+                session['chat_history'].append({'role': 'assistant', 'content': response_text})
+                session['analysis_count'] = session.get('analysis_count', 0) + 1
+                
+                print(f"✅ Risposta generata: {len(response_text)} caratteri")
+                
+                result = {
+                    'success': True,
+                    'response': response_text,
+                    'chat_history': session['chat_history'][-10:]  # Restituisci solo le ultime 10 conversazioni
                 }
-            elif table_data:
-                final_response = {
-                    'text': response_text,
-                    'table': table_data
-                }
-            
-            session['chat_history'].append({'role': 'assistant', 'content': final_response})
-            session['analysis_count'] = session.get('analysis_count', 0) + 1
-            
+                print(f"🔍 Debug - JSON restituito: {result}")
+                return jsonify(result)
+            else:
+                error_result = {'success': False, 'error': 'Nessuna risposta valida generata dall\'AI. Prova a riformulare la domanda.'}
+                print(f"🔍 Debug - Errore restituito: {error_result}")
+                return jsonify(error_result)
+                
+        except Exception as ai_error:
+            print(f"❌ Errore AI: {ai_error}")
             return jsonify({
-                'success': True,
-                'response': final_response,
-                'chat_history': session['chat_history']
+                'success': False, 
+                'error': 'Servizio AI temporaneamente sovraccarico. Riprova tra qualche minuto.'
             })
-        else:
-            return jsonify({'success': False, 'error': 'Errore nella risposta AI'})
             
     except Exception as e:
         return jsonify({
@@ -465,5 +407,5 @@ def get_chat_history():
     })
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 8080))
     app.run(debug=False, host='0.0.0.0', port=port)

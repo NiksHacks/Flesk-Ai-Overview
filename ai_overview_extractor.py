@@ -13,22 +13,39 @@ per la sua robustezza nella gestione dei popup e migliori performance.
 import time
 import json
 import os
+import subprocess
+import sys
 from datetime import datetime
 from playwright.sync_api import sync_playwright
+import requests
+from bs4 import BeautifulSoup
+import urllib.parse
 
 class AIOverviewExtractor:
-    def __init__(self, headless=False):
+    def __init__(self, headless=False, use_fallback=False):
         """
         Inizializza l'estrattore AI Overview con Playwright (2025)
         
         Args:
             headless (bool): Se True, esegue il browser in modalità headless
+            use_fallback (bool): Se True, usa requests invece di Playwright
         """
         self.browser = None
         self.page = None
         self.headless = headless
         self.playwright = None
-        self.setup_browser()
+        self.use_fallback = use_fallback
+        
+        if not use_fallback:
+            try:
+                self.setup_browser()
+            except Exception as e:
+                print(f"❌ Playwright non disponibile: {e}")
+                print("🔄 Passaggio al metodo fallback con requests...")
+                self.use_fallback = True
+        
+        if self.use_fallback:
+            self.setup_requests_session()
     
     def setup_browser(self):
         """Configura Playwright con le migliori opzioni per gestire popup Google (2025)"""
@@ -61,40 +78,108 @@ class AIOverviewExtractor:
                 '--disable-save-password-bubble',  # Disabilita popup password
             ]
             
-            # Avvia browser Chromium
-            self.browser = self.playwright.chromium.launch(
-                headless=self.headless,
-                args=browser_args
-            )
+            # Prova ad avviare browser Chromium
+            try:
+                self.browser = self.playwright.chromium.launch(
+                    headless=self.headless,
+                    args=browser_args
+                )
+            except Exception as browser_error:
+                print(f"⚠️ Errore avvio Chromium: {browser_error}")
+                print("🔧 Tentativo di installazione automatica browser...")
+                
+                # Prova installazione automatica
+                try:
+                    import subprocess
+                    import sys
+                    
+                    # Installa browser Playwright
+                    result = subprocess.run(
+                        [sys.executable, "-m", "playwright", "install", "chromium"],
+                        capture_output=True,
+                        text=True,
+                        timeout=300  # 5 minuti timeout
+                    )
+                    
+                    if result.returncode == 0:
+                        print("✅ Browser installato con successo")
+                        # Riprova avvio
+                        self.browser = self.playwright.chromium.launch(
+                            headless=self.headless,
+                            args=browser_args
+                        )
+                    else:
+                        print(f"❌ Errore installazione: {result.stderr}")
+                        raise Exception("Impossibile installare browser Playwright")
+                        
+                except subprocess.TimeoutExpired:
+                    print("❌ Timeout installazione browser")
+                    raise Exception("Timeout durante installazione browser")
+                except Exception as install_error:
+                    print(f"❌ Errore installazione: {install_error}")
+                    raise Exception(f"Impossibile installare browser: {install_error}")
+        except Exception as e:
+            print(f"❌ Errore generale nell'inizializzazione Playwright: {e}")
+            self.use_fallback = True
             
-            # Crea contesto con impostazioni anti-rilevamento
-            context = self.browser.new_context(
-                viewport={'width': 1920, 'height': 1080},
-                user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                locale='it-IT',
-                timezone_id='Europe/Rome',
-                permissions=['geolocation'],  # Gestisce permessi automaticamente
-                extra_http_headers={
-                    'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8'
-                }
-            )
+        # Se Playwright è disponibile, crea contesto e pagina
+        if not self.use_fallback and hasattr(self, 'browser') and self.browser:
+            try:
+                # Crea contesto con impostazioni anti-rilevamento
+                context = self.browser.new_context(
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    locale='it-IT',
+                    timezone_id='Europe/Rome',
+                    permissions=['geolocation'],  # Gestisce permessi automaticamente
+                    extra_http_headers={
+                        'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8'
+                    }
+                )
+                
+                # Crea pagina
+                self.page = context.new_page()
+                
+                # Script anti-rilevamento
+                self.page.add_init_script("""
+                    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                    Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+                    Object.defineProperty(navigator, 'languages', {get: () => ['it-IT', 'it', 'en']});
+                    window.chrome = {runtime: {}};
+                """)
+                
+                print("✅ Playwright configurato con successo")
+                
+            except Exception as e:
+                print(f"❌ Errore nell'inizializzazione Playwright: {e}")
+                self.use_fallback = True
+                self.page = None
+    
+    def setup_requests_session(self):
+        """Configura sessione requests come fallback"""
+        try:
+            print("🔄 Inizializzando sessione requests (fallback)...")
+            self.session = requests.Session()
             
-            # Crea pagina
-            self.page = context.new_page()
+            # Headers per simulare un browser reale
+            self.session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none'
+            })
             
-            # Script anti-rilevamento
-            self.page.add_init_script("""
-                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-                Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
-                Object.defineProperty(navigator, 'languages', {get: () => ['it-IT', 'it', 'en']});
-                window.chrome = {runtime: {}};
-            """)
-            
-            print("✅ Playwright configurato con successo")
+            print("✅ Sessione requests configurata")
             
         except Exception as e:
-            print(f"❌ Errore nell'inizializzazione Playwright: {e}")
-            raise Exception(f"Impossibile inizializzare Playwright: {e}")
+            print(f"❌ Errore configurazione requests: {e}")
+            raise Exception(f"Impossibile configurare requests: {e}")
     
     def handle_popups_and_captcha(self):
         """Gestisce popup di consenso Google con strategie avanzate 2025"""
@@ -226,6 +311,12 @@ class AIOverviewExtractor:
         """Esegue una ricerca su Google con Playwright"""
         try:
             print(f"🔍 Ricerca: {query}")
+            
+            # Verifica se Playwright è disponibile
+            if self.use_fallback or not self.page:
+                print("⚠️ Playwright non disponibile, uso fallback requests")
+                self.use_fallback = True
+                return False
             
             # Naviga a Google
             self.page.goto("https://www.google.com", wait_until="domcontentloaded")
@@ -664,6 +755,100 @@ class AIOverviewExtractor:
         
         return ai_overview_content
     
+    def search_google_fallback(self, query):
+        """Ricerca Google usando requests come fallback"""
+        try:
+            print(f"🔍 Ricerca fallback: {query}")
+            
+            # Codifica la query per URL
+            encoded_query = urllib.parse.quote_plus(query)
+            search_url = f"https://www.google.com/search?q={encoded_query}&hl=it&gl=it"
+            
+            # Esegui la richiesta
+            response = self.session.get(search_url, timeout=30)
+            response.raise_for_status()
+            
+            # Salva la risposta per l'estrazione
+            self.search_html = response.text
+            print("✅ Ricerca fallback completata")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Errore ricerca fallback: {e}")
+            return False
+    
+    def extract_ai_overview_fallback(self):
+        """Estrae AI Overview da HTML usando BeautifulSoup"""
+        try:
+            print("🤖 Estrazione AI Overview fallback...")
+            
+            if not hasattr(self, 'search_html'):
+                print("❌ Nessun HTML di ricerca disponibile")
+                return None
+            
+            soup = BeautifulSoup(self.search_html, 'html.parser')
+            
+            # Selettori per AI Overview (aggiornati 2025)
+            ai_selectors = [
+                '[data-attrid="ai_overview"]',
+                '[data-attrid*="ai"]',
+                '.ai-overview',
+                '.AI-overview',
+                '[class*="ai-overview"]',
+                '[class*="AI-overview"]',
+                '[data-ved*="ai"]',
+                '.g[data-ved] div[data-attrid]',
+                'div[jscontroller][data-ved] div[data-attrid]'
+            ]
+            
+            ai_content = {
+                "found": False,
+                "text": "",
+                "full_content": "",
+                "timestamp": datetime.now().isoformat(),
+                "method": "requests_fallback"
+            }
+            
+            # Cerca AI Overview
+            for selector in ai_selectors:
+                try:
+                    elements = soup.select(selector)
+                    for element in elements:
+                        text = element.get_text(strip=True)
+                        if text and len(text) > 50:  # Filtro per contenuto significativo
+                            # Verifica che non sia solo navigazione o link
+                            if not any(skip in text.lower() for skip in ['immagini', 'video', 'notizie', 'shopping', 'maps']):
+                                ai_content["found"] = True
+                                ai_content["text"] = text
+                                ai_content["full_content"] = text
+                                print(f"✅ AI Overview trovato con: {selector}")
+                                print(f"📝 Lunghezza: {len(text)} caratteri")
+                                return ai_content
+                except Exception as e:
+                    continue
+            
+            # Fallback: cerca contenuto in div principali
+            if not ai_content["found"]:
+                print("🔍 Ricerca fallback in div principali...")
+                main_divs = soup.find_all('div', {'data-ved': True})
+                for div in main_divs[:10]:  # Controlla solo i primi 10
+                    text = div.get_text(strip=True)
+                    if len(text) > 100 and len(text) < 2000:  # Lunghezza ragionevole
+                        # Verifica che contenga informazioni utili
+                        if any(keyword in text.lower() for keyword in ['secondo', 'può', 'sono', 'viene', 'questo', 'questi']):
+                            ai_content["found"] = True
+                            ai_content["text"] = text
+                            ai_content["full_content"] = text
+                            print(f"✅ Contenuto trovato in div principale")
+                            return ai_content
+            
+            print("❌ AI Overview non trovato con metodo fallback")
+            return ai_content
+            
+        except Exception as e:
+            print(f"❌ Errore estrazione fallback: {e}")
+            return None
+    
     def extract_ai_overview_from_query(self, query):
         """
         Funzione principale che esegue la ricerca ed estrae l'AI Overview
@@ -677,15 +862,24 @@ class AIOverviewExtractor:
         try:
             print(f"🔍 Ricerca di: {query}")
             
-            # Esegui la ricerca
-            if not self.search_google(query):
-                print("❌ Ricerca fallita")
-                return None
+            if self.use_fallback:
+                # Usa metodo fallback
+                if not self.search_google_fallback(query):
+                    print("❌ Ricerca fallback fallita")
+                    return None
+                
+                print("🤖 Estrazione AI Overview fallback...")
+                ai_content = self.extract_ai_overview_fallback()
+            else:
+                # Usa Playwright
+                if not self.search_google(query):
+                    print("❌ Ricerca fallita")
+                    return None
+                
+                print("🤖 Estrazione dell'AI Overview...")
+                ai_content = self.extract_ai_overview()
             
-            print("🤖 Estrazione dell'AI Overview...")
-            ai_content = self.extract_ai_overview()
-            
-            if ai_content:
+            if ai_content and ai_content.get("found"):
                 print("✅ AI Overview estratto con successo!")
                 return ai_content
             else:
@@ -722,16 +916,22 @@ class AIOverviewExtractor:
                 self.browser.close()
             if hasattr(self, 'playwright') and self.playwright:
                 self.playwright.stop()
-            print("🔒 Browser chiuso correttamente")
+            if hasattr(self, 'session') and self.session:
+                self.session.close()
+            print("🔒 Risorse chiuse correttamente")
         except Exception as e:
             print(f"❌ Errore durante la chiusura: {e}")
 
 
 def main():
     """Funzione principale per testare l'estrattore"""
-    extractor = AIOverviewExtractor(headless=False)
+    extractor = None
     
     try:
+        # Prova prima con Playwright
+        print("🚀 Tentativo con Playwright...")
+        extractor = AIOverviewExtractor(headless=True)
+        
         # Query di test aggiornata per il 2025
         query = "migliori smartphone 2025"
         
@@ -739,19 +939,52 @@ def main():
         result = extractor.extract_ai_overview_from_query(query)
         
         # Salva il risultato
-        if result:
-            filename = f"ai_overview_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        if result and result.get("found"):
+            filename = f"ai_overview_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
             extractor.save_to_file(result, filename)
             print(f"📁 Risultato salvato in: {filename}")
             
             # Stampa il risultato
             print("\n=== CONTENUTO AI OVERVIEW ===")
-            print(result)
+            print(f"Metodo: {result.get('method', 'playwright')}")
+            print(f"Lunghezza: {len(result.get('full_content', ''))} caratteri")
+            print(f"Contenuto: {result.get('full_content', '')[:500]}...")
         else:
             print("❌ Nessun AI Overview trovato")
         
+    except Exception as e:
+        print(f"❌ Errore: {e}")
+        
+        # Prova con fallback se Playwright fallisce
+        if extractor and extractor.use_fallback:
+            print("\n🔄 Già in modalità fallback")
+        else:
+            print("\n🔄 Tentativo con metodo fallback...")
+            try:
+                if extractor:
+                    extractor.close()
+                
+                extractor = AIOverviewExtractor(use_fallback=True)
+                result = extractor.extract_ai_overview_from_query(query)
+                
+                if result and result.get("found"):
+                    filename = f"ai_overview_fallback_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                    extractor.save_to_file(result, filename)
+                    print(f"📁 Risultato fallback salvato in: {filename}")
+                    
+                    print("\n=== CONTENUTO AI OVERVIEW (FALLBACK) ===")
+                    print(f"Metodo: {result.get('method', 'fallback')}")
+                    print(f"Lunghezza: {len(result.get('full_content', ''))} caratteri")
+                    print(f"Contenuto: {result.get('full_content', '')[:500]}...")
+                else:
+                    print("❌ Nessun AI Overview trovato con fallback")
+                    
+            except Exception as fallback_error:
+                print(f"❌ Errore anche con fallback: {fallback_error}")
+        
     finally:
-        extractor.close()
+        if extractor:
+            extractor.close()
 
 
 if __name__ == "__main__":

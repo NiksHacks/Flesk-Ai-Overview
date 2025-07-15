@@ -392,10 +392,9 @@ async function sendChatMessage() {
         return;
     }
     
-    if (!currentAiOverview) {
-        showNotification('Carica prima un file AI Overview JSON', 'warning');
-        return;
-    }
+    // Rimuovi il controllo obbligatorio per AI Overview - permetti chat anche senza file
+    console.log('🔍 Debug - currentAiOverview:', currentAiOverview);
+    console.log('🔍 Debug - Invio messaggio:', message);
     
     // Add user message
     addChatMessage('user', message);
@@ -417,6 +416,11 @@ async function sendChatMessage() {
         });
         
         const data = await response.json();
+        
+        // Debug logs
+        console.log('🔍 Debug - Risposta server:', data);
+        console.log('🔍 Debug - Success:', data.success);
+        console.log('🔍 Debug - Response:', data.response);
         
         // Remove typing indicator
         removeTypingIndicator(typingId);

@@ -9,8 +9,8 @@ import logging
 
 class SemanticAnalyzer:
     """
-    Analizzatore semantico avanzato che utilizza Google Gemini 2.5 Pro per migliorare
-    l'accuratezza dell'analisi del content gap
+    Analizzatore semantico avanzato che utilizza Google Gemini 2.0 Flash per migliorare
+    l'accuratezza dell'analisi del content gap con velocità ottimizzata
     """
     
     def __init__(self, gemini_api_key: Optional[str] = None, use_local_models: bool = True):
@@ -32,8 +32,8 @@ class SemanticAnalyzer:
         # Configura Google Gemini con chiave integrata
         try:
             genai.configure(api_key=self.gemini_api_key)
-            self.model = genai.GenerativeModel('gemini-2.5-pro')
-            self.logger.info("✅ Google Gemini 2.5 Pro configurato")
+            self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            self.logger.info("✅ Google Gemini 2.0 Flash configurato")
         except Exception as e:
             self.logger.error(f"❌ Errore nella configurazione di Gemini: {e}")
             self.model = None
