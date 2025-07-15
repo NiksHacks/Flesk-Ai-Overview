@@ -1,0 +1,61 @@
+# Git
+.git
+.gitignore
+
+# Railway specific files
+Procfile
+railway.json
+.railwayignore
+
+# Render specific files
+render.yaml
+
+# Documentation
+README.md
+DEPLOY.md
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+
+# Uploads (will be recreated)
+uploads/*
+!uploads/.gitkeep
