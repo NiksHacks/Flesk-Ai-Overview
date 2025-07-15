@@ -1,26 +1,33 @@
 #!/bin/bash
-set -e
+set -e  # Stop on any error
 
-echo "🚀 Starting build process..."
+echo "🚀 Starting build process with Python 3.11..."
 
-# Update pip first
-echo "📦 Updating pip..."
+# Show Python version
+python --version
+
+# Clean any existing setuptools
+echo "🧹 Cleaning existing setuptools..."
+pip uninstall -y setuptools wheel || true
+
+# Update pip to latest
+echo "📦 Updating pip to latest..."
 python -m pip install --upgrade pip
 
-# Install build tools with specific versions
-echo "🔧 Installing build tools..."
-python -m pip install setuptools==68.2.2 wheel==0.41.2 --force-reinstall --no-deps
+# Install setuptools and wheel from scratch
+echo "🔧 Installing fresh setuptools and wheel..."
+python -m pip install --no-cache-dir setuptools==69.5.1 wheel==0.43.0
 
-# Verify setuptools installation
-echo "✅ Verifying setuptools..."
-python -c "import setuptools; print(f'Setuptools version: {setuptools.__version__}')"
+# Verify installation
+echo "✅ Verifying setuptools installation..."
+python -c "import setuptools; print(f'✅ Setuptools {setuptools.__version__} installed successfully')"
 
-# Install requirements without build isolation
-echo "📋 Installing requirements..."
-python -m pip install -r requirements.txt --no-build-isolation
+# Install requirements
+echo "📋 Installing project requirements..."
+pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright browsers
-echo "🎭 Installing Playwright browsers..."
+echo "🎭 Installing Playwright Chromium..."
 playwright install chromium
 
-echo "✅ Build completed successfully!"
+echo "✅ Build completed successfully with Python $(python --version)!"
